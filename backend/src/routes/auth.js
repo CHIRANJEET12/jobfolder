@@ -21,4 +21,6 @@ router.delete("/delete-job/:id", validateUser, formController.deleteJob);
 
 router.patch("/update-job-status/:jobId", validateUser, formController.updateJobStatus);
 
+router.post("/apply/:jobId", validateUser, formController.applyForJob);
+
 module.exports = router;
