@@ -146,3 +146,64 @@ module.exports.applyForJob = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+
+module.exports.updateApplicationStatus = async (req, res) => {
+    try {
+        const { appId } = req.params;
+        const { status, interviewMessage, interviewDate } = req.body;
+
+        if (!req.user || req.user.role !== "recruiter") {
+            return res.status(403).json({ message: "Access denied. Only recruiters can update applications." });
+        }
+
+        const application = await JobApplication.findById(appId);
+        if (!application) return res.status(404).json({ message: "Application not found" });
+
+        const validStatuses = ["Shortlisted", "Interview Scheduled", "Rejected", "Selected"];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message: "Invalid status update" });
+        }
+
+        // Update status
+        application.status = status;
+
+        // Allow recruiters to update interview message anytime
+        if (interviewMessage !== undefined) {
+            application.interviewMessage = interviewMessage;
+        }
+
+        // If status is "Interview Scheduled", update or clear date
+        if (status === "Interview Scheduled") {
+            if (interviewDate) {
+                application.interviewDate = new Date(interviewDate);
+            } else {
+                application.interviewDate = null; // Allow clearing the date
+            }
+        }
+
+        await application.save();
+        res.status(200).json({ message: "Application updated successfully", application });
+
+    } catch (error) {
+        console.error("Error updating application:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+
+module.exports.getCandidateApplications = async (req, res) => {
+    try {
+        if (!req.user || req.user.role !== "candidate") {
+            return res.status(403).json({ message: "Access denied. Only candidates can view their applications." });
+        }
+
+        const applications = await JobApplication.find({ candidate: req.user.id })
+            .populate("job", "title company location status") 
+            .sort({ createdAt: -1 }); 
+
+        res.status(200).json({ applications });
+    } catch (error) {
+        console.error("Error fetching applications:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};

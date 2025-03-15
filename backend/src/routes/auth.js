@@ -23,4 +23,8 @@ router.patch("/update-job-status/:jobId", validateUser, formController.updateJob
 
 router.post("/apply/:jobId", validateUser, formController.applyForJob);
 
+router.post("/update-application/:appId",validateUser,formController.updateApplicationStatus);
+
+router.get("/my-applications",validateUser,formController.getCandidateApplications);
+
 module.exports = router;

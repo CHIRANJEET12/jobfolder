@@ -3,9 +3,16 @@ const mongoose = require("mongoose");
 const jobApplicationSchema = new mongoose.Schema({
     job: { type: mongoose.Schema.Types.ObjectId, ref: "Job", required: true },
     candidate: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    message: { type: String, required: true },
-    resumeUrl: { type: String, required: true } // ✅ Cloudinary URL
-}, { timestamps: true });
+    message: { type: String },
+    resumeUrl: { type: String, required: true },
+    status: { 
+        type: String, 
+        enum: ["Applied", "Shortlisted", "Interview Scheduled", "Rejected", "Selected"], 
+        default: "Applied"
+    },
+    interviewMessage: { type: String }, 
+    interviewDate: { type: Date }, 
+});
 
 const JobApplication = mongoose.model("JobApplication", jobApplicationSchema);
 
