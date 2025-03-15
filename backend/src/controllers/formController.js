@@ -61,7 +61,6 @@ module.exports.deleteJob = async (req, res) => {
         res.status(500).json({ message: "Error deleting job", error: error.message });
     }
 };
-
 module.exports.updateJobStatus = async (req, res) => {
     try {
         const jobId = req.params.jobId.trim();
@@ -73,10 +72,7 @@ module.exports.updateJobStatus = async (req, res) => {
         }
 
         const job = await Job.findById(jobId);
-
-        if (!job) {
-            return res.status(404).json({ message: "Job not found" });
-        }
+        if (!job) return res.status(404).json({ message: "Job not found" });
 
         if (job.recruiter.toString() !== req.user.id) {
             return res.status(403).json({ message: "Unauthorized to update this job's status" });
@@ -85,12 +81,21 @@ module.exports.updateJobStatus = async (req, res) => {
         job.status = status;
         await job.save();
 
+        // If job is marked as "ended", reject all pending applications
+        if (status === "ended") {
+            await JobApplication.updateMany(
+                { job: jobId, status: { $nin: ["Rejected", "Selected"] } },
+                { $set: { status: "Rejected" } }
+            );
+        }
+
         res.json({ message: "Job status updated successfully", job });
     } catch (error) {
         console.error("Error updating job status:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+
 
 module.exports.applyForJob = async (req, res) => {
     try {
@@ -156,29 +161,26 @@ module.exports.updateApplicationStatus = async (req, res) => {
             return res.status(403).json({ message: "Access denied. Only recruiters can update applications." });
         }
 
-        const application = await JobApplication.findById(appId);
+        const application = await JobApplication.findById(appId).populate("job");
         if (!application) return res.status(404).json({ message: "Application not found" });
+
+        if (application.job.status === "ended") {
+            return res.status(400).json({ message: "This job is closed. No further updates allowed." });
+        }
 
         const validStatuses = ["Shortlisted", "Interview Scheduled", "Rejected", "Selected"];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ message: "Invalid status update" });
         }
 
-        // Update status
         application.status = status;
 
-        // Allow recruiters to update interview message anytime
         if (interviewMessage !== undefined) {
             application.interviewMessage = interviewMessage;
         }
 
-        // If status is "Interview Scheduled", update or clear date
         if (status === "Interview Scheduled") {
-            if (interviewDate) {
-                application.interviewDate = new Date(interviewDate);
-            } else {
-                application.interviewDate = null; // Allow clearing the date
-            }
+            application.interviewDate = interviewDate ? new Date(interviewDate) : null;
         }
 
         await application.save();
@@ -191,19 +193,40 @@ module.exports.updateApplicationStatus = async (req, res) => {
 };
 
 
-module.exports.getCandidateApplications = async (req, res) => {
+
+module.exports.getCandidateApplicationsWithStats = async (req, res) => {
     try {
         if (!req.user || req.user.role !== "candidate") {
             return res.status(403).json({ message: "Access denied. Only candidates can view their applications." });
         }
 
+        // Fetch candidate's job applications
         const applications = await JobApplication.find({ candidate: req.user.id })
-            .populate("job", "title company location status") 
-            .sort({ createdAt: -1 }); 
+            .populate("job", "title company location status")
+            .sort({ createdAt: -1 });
 
-        res.status(200).json({ applications });
+        // Get total applications count
+        const totalApplications = applications.length;
+
+        // Count applications per status
+        const statusCounts = applications.reduce((acc, app) => {
+            acc[app.status] = (acc[app.status] || 0) + 1;
+            return acc;
+        }, {});
+
+        // Calculate conversion ratio (Selected / Total Applied)
+        const selectedCount = statusCounts["Selected"] || 0;
+        const conversionRatio = totalApplications ? (selectedCount / totalApplications) * 100 : 0;
+
+        res.status(200).json({ 
+            applications,
+            totalApplications, 
+            statusData: statusCounts, 
+            conversionRatio: conversionRatio.toFixed(2) 
+        });
+
     } catch (error) {
-        console.error("Error fetching applications:", error);
+        console.error("Error fetching applications and stats:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
