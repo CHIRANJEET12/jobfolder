@@ -203,7 +203,7 @@ module.exports.getCandidateApplicationsWithStats = async (req, res) => {
         const applications = await JobApplication.find({ candidate: req.user.id })
             .populate("job", "title company location status")
             .sort({ createdAt: -1 });
-pp
+
         const totalApplications = applications.length;
 
         const statusCounts = applications.reduce((acc, app) => {
