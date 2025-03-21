@@ -200,21 +200,17 @@ module.exports.getCandidateApplicationsWithStats = async (req, res) => {
             return res.status(403).json({ message: "Access denied. Only candidates can view their applications." });
         }
 
-        // Fetch candidate's job applications
         const applications = await JobApplication.find({ candidate: req.user.id })
             .populate("job", "title company location status")
             .sort({ createdAt: -1 });
-
-        // Get total applications count
+pp
         const totalApplications = applications.length;
 
-        // Count applications per status
         const statusCounts = applications.reduce((acc, app) => {
             acc[app.status] = (acc[app.status] || 0) + 1;
             return acc;
         }, {});
 
-        // Calculate conversion ratio (Selected / Total Applied)
         const selectedCount = statusCounts["Selected"] || 0;
         const conversionRatio = totalApplications ? (selectedCount / totalApplications) * 100 : 0;
 
