@@ -25,6 +25,6 @@ router.post("/apply/:jobId", validateUser, formController.applyForJob);
 
 router.post("/update-application/:appId",validateUser,formController.updateApplicationStatus);
 
-router.get("/my-applications",validateUser,formController.getCandidateApplicationsWithStats);
+router.get("/applications",validateUser,formController.getCandidateApplicationsWithStats);
 
 module.exports = router;
